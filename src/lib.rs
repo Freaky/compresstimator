@@ -51,7 +51,6 @@ fn sample_size(pop: u64, moe: u8, confidence: Confidence) -> f32 {
 #[derive(Debug, Clone)]
 pub struct Compresstimator {
     block_size: u64,
-    small_cutoff: u64,
     error_margin: u8,
     confidence: Confidence,
 }
@@ -62,7 +61,6 @@ impl Default for Compresstimator {
     fn default() -> Self {
         Self {
             block_size: DEFAULT_BLOCK_SIZE,
-            small_cutoff: DEFAULT_BLOCK_SIZE * 10,
             error_margin: 15,
             confidence: Confidence::C90,
         }
@@ -81,6 +79,20 @@ impl Compresstimator {
             block_size: block_size as u64,
             ..Self::default()
         }
+    }
+
+    /// Exhaustively compress the file and return the ratio.
+    pub fn base_truth<P: AsRef<Path>>(&self, path: P) -> io::Result<f32> {
+        let mut input = File::open(path)?;
+
+        let output = WriteCount::default();
+        let mut encoder = EncoderBuilder::new().level(1).build(output)?;
+        let len = std::io::copy(&mut input, &mut encoder)?;
+
+        let (output, result) = encoder.finish();
+        result?;
+
+        Ok(output.written as f32 / len as f32)
     }
 
     /// Compresstimate the seekable stream `input` of `len` bytes, returning an
