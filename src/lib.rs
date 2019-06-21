@@ -74,7 +74,7 @@ impl Compresstimator {
 
     /// Use a given block size for compresstimation.  This should usually be the
     /// underlying filesystem's block size.
-    pub fn new_with_block_size(block_size: usize) -> Self {
+    pub fn with_block_size(block_size: usize) -> Self {
         Self {
             block_size: block_size as u64,
             ..Self::default()
