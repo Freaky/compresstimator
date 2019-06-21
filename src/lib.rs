@@ -87,12 +87,10 @@ impl Compresstimator {
 
         let output = WriteCount::default();
         let mut encoder = EncoderBuilder::new().level(1).build(output)?;
-        let len = std::io::copy(&mut input, &mut encoder)?;
+        let written = std::io::copy(&mut input, &mut encoder)?;
 
         let (output, result) = encoder.finish();
-        result?;
-
-        Ok(output.written as f32 / len as f32)
+        result.map(|_| output.written as f32 / written as f32)
     }
 
     /// Compresstimate the seekable stream `input` of `len` bytes, returning an
@@ -104,30 +102,27 @@ impl Compresstimator {
 
         let blocks = len / self.block_size;
         let samples = sample_size(blocks, 15, Confidence::C90) as u64;
+        let written;
 
         // If we're going to be randomly sampling a big chunk of the file anyway,
         // we might as well read in the lot.
-        if len < samples * self.block_size * 4 {
-            std::io::copy(&mut input, &mut encoder)?;
-            let (output, result) = encoder.finish();
-            result?;
-            return Ok(output.written as f32 / len as f32);
-        }
+        if samples == 0 || len < samples * self.block_size * 4 {
+            written = std::io::copy(&mut input, &mut encoder)?;
+        } else {
+            let step = self.block_size * (blocks / samples);
 
-        let step = self.block_size * (blocks / samples);
+            let mut buf = vec![0; self.block_size as usize];
+            written = self.block_size * samples;
 
-        let mut buf = vec![0; self.block_size as usize];
-
-        for i in 0..samples {
-            input.seek(SeekFrom::Start(step * i))?;
-            input.read_exact(&mut buf)?;
-            encoder.write_all(&buf)?;
+            for i in 0..samples {
+                input.seek(SeekFrom::Start(step * i))?;
+                input.read_exact(&mut buf)?;
+                encoder.write_all(&buf)?;
+            }
         }
 
         let (output, result) = encoder.finish();
-        result?;
-
-        Ok(output.written as f32 / (self.block_size * samples) as f32)
+        result.map(|_| output.written as f32 / written as f32)
     }
 
     /// Compresstimate a path with a known file length.
