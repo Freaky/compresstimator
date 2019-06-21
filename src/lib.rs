@@ -48,7 +48,7 @@ fn sample_size(pop: u64, moe: u8, confidence: Confidence) -> f32 {
     ((pop * n_naught) / (n_naught + pop - 1.0)).ceil()
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Compresstimator {
     block_size: u64,
     error_margin: u8,
