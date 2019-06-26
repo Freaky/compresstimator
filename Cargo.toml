@@ -3,6 +3,7 @@ name = "compresstimator"
 version = "0.1.0"
 authors = ["Thomas Hurst <tom@hur.st>"]
 edition = "2018"
+license = "MIT"
 
 [dependencies]
 lz4 = "1"
