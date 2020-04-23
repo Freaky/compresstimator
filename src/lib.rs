@@ -1,3 +1,11 @@
+#![warn(missing_docs)]
+#![warn(missing_doc_code_examples)]
+
+//! # Compresstimator
+//!
+//! Simple file compressibility estimation
+//!
+
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
@@ -48,6 +56,18 @@ fn sample_size(pop: u64, moe: u8, confidence: Confidence) -> f32 {
     ((pop * n_naught) / (n_naught + pop - 1.0)).ceil()
 }
 
+/// A compression estimator with a configured block size, and (currently) fixed
+/// accuracy (±15%, 90% confidence)
+///
+/// ```no_run
+/// use compresstimator::Compresstimator;
+///
+/// let est = Compresstimator::default();
+/// match est.compresstimate_file("big_file.dat") {
+///     Ok(ratio) => println!("Compression ratio: {}", ratio),
+///     Err(e) => eprintln!("IO Error: {}", e)
+/// };
+/// ```
 #[derive(Debug, Clone, Copy)]
 pub struct Compresstimator {
     block_size: u64,
@@ -58,6 +78,7 @@ pub struct Compresstimator {
 const DEFAULT_BLOCK_SIZE: u64 = 4096;
 
 impl Default for Compresstimator {
+    /// Create a `Compresstimator` with a default block size of 4096 bytes
     fn default() -> Self {
         Self {
             block_size: DEFAULT_BLOCK_SIZE,
@@ -68,12 +89,13 @@ impl Default for Compresstimator {
 }
 
 impl Compresstimator {
+    /// Alias for `default()`
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Use a given block size for compresstimation.  This should usually be the
-    /// underlying filesystem's block size.
+    /// Use a given block size for compresstimation.  This should be some reasonable
+    /// multiple of the underlying filesystem block size.
     pub fn with_block_size(block_size: usize) -> Self {
         Self {
             block_size: block_size as u64,
@@ -81,7 +103,8 @@ impl Compresstimator {
         }
     }
 
-    /// Exhaustively compress the file and return the ratio.
+    /// Exhaustively compress the file and return the achieved ratio.  This is
+    /// really only for validation purposes during testing.
     pub fn base_truth<P: AsRef<Path>>(&self, path: P) -> io::Result<f32> {
         let mut input = File::open(path)?;
 
