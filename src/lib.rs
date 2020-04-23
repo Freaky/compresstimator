@@ -113,7 +113,7 @@ impl Compresstimator {
         let written = std::io::copy(&mut input, &mut encoder)?;
 
         let (output, result) = encoder.finish();
-        result.map(|_| output.written as f32 / written as f32)
+        result.map(|_| (output.written as f32 / written as f32).min(1.0))
     }
 
     /// Compresstimate the seekable stream `input` of `len` bytes, returning an
@@ -145,7 +145,7 @@ impl Compresstimator {
         }
 
         let (output, result) = encoder.finish();
-        result.map(|_| output.written as f32 / written as f32)
+        result.map(|_| (output.written as f32 / written as f32).min(1.0))
     }
 
     /// Compresstimate a path with a known file length.
@@ -166,6 +166,9 @@ fn amazing_test_suite() {
     let est = Compresstimator::default();
 
     assert!(est.compresstimate_file("Cargo.lock").expect("Cargo.lock") < 1.0);
+
+    let empty = vec![];
+    assert!(est.compresstimate(std::io::Cursor::new(empty), 0).expect("empty should work") == 1.0);
 
     if std::path::PathBuf::from("/dev/urandom").exists() {
         assert!(est.compresstimate_file_len("/dev/urandom", 1024 * 1024).expect("/dev/urandom") >= 1.0);
