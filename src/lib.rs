@@ -116,11 +116,23 @@ impl Compresstimator {
         result.map(|_| (output.written as f32 / written as f32).min(1.0))
     }
 
-    /// Compresstimate the seekable stream `input` of `len` bytes, returning an
-    /// estimated conservative compress ratio (based on lz4 level 1).
-    pub fn compresstimate<P: Read + Seek>(&self, mut input: P, len: u64) -> io::Result<f32> {
-        let output = WriteCount::default();
+    /// Compresstimate the seekable stream `input` from the current position to the
+    /// end.
+    ///
+    /// This function determines the length of the stream by seeking to the end.
+    pub fn compresstimate<P: Read + Seek>(&self, mut input: P) -> io::Result<f32> {
+        // In future consider stream_len() and stream_position()
+        // https://github.com/rust-lang/rust/issues/59359
+        let pos = input.seek(SeekFrom::Current(0))?;
+        let len = input.seek(SeekFrom::End(0))?;
+        input.seek(SeekFrom::Start(pos))?;
+        self.compresstimate_len(&mut input, len - pos)
+    }
 
+    /// Compresstimate up to `len` bytes from the seekable `input` stream,
+    /// returning an estimated compression ratio (currently based on lz4 level 1).
+    pub fn compresstimate_len<P: Read + Seek>(&self, mut input: P, len: u64) -> io::Result<f32> {
+        let output = WriteCount::default();
         let mut encoder = EncoderBuilder::new().level(1).build(output)?;
 
         let blocks = len / self.block_size;
@@ -148,16 +160,16 @@ impl Compresstimator {
         result.map(|_| (output.written as f32 / written as f32).min(1.0))
     }
 
-    /// Compresstimate a path with a known file length.
+    /// Compresstimate the first `len` bytes of the file located at `path`.
+    ///
+    /// If the file is shorter than `len`, this function may fail with a seek error.
     pub fn compresstimate_file_len<P: AsRef<Path>>(&self, path: P, len: u64) -> io::Result<f32> {
-        self.compresstimate(File::open(path)?, len)
+        self.compresstimate_len(File::open(path)?, len)
     }
 
-    /// Compresstimate a path.
+    /// Compresstimate the file located at `path`.
     pub fn compresstimate_file<P: AsRef<Path>>(&self, path: P) -> io::Result<f32> {
-        let input = File::open(path)?;
-        let len = input.metadata()?.len();
-        self.compresstimate(input, len)
+        self.compresstimate(File::open(path)?)
     }
 }
 
@@ -168,7 +180,7 @@ fn amazing_test_suite() {
     assert!(est.compresstimate_file("Cargo.lock").expect("Cargo.lock") < 1.0);
 
     let empty = vec![];
-    assert!(est.compresstimate(std::io::Cursor::new(empty), 0).expect("empty should work") == 1.0);
+    assert!(est.compresstimate(std::io::Cursor::new(empty)).expect("empty should work") == 1.0);
 
     if std::path::PathBuf::from("/dev/urandom").exists() {
         assert!(est.compresstimate_file_len("/dev/urandom", 1024 * 1024).expect("/dev/urandom") >= 1.0);
