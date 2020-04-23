@@ -1,5 +1,10 @@
 [package]
 name = "compresstimator"
+description = "Simple file compressibility estimation"
+repository = "https://github.com/Freaky/compresstimator"
+readme = "README.md"
+keywords = ["compression", "estimation"]
+categories = ["compression", "filesystem"]
 version = "0.1.0"
 authors = ["Thomas Hurst <tom@hur.st>"]
 edition = "2018"
