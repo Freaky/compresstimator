@@ -103,11 +103,8 @@ impl Compresstimator {
         }
     }
 
-    /// Exhaustively compress the file and return the achieved ratio.  This is
-    /// really only for validation purposes during testing.
-    pub fn base_truth<P: AsRef<Path>>(&self, path: P) -> io::Result<f32> {
-        let mut input = File::open(path)?;
-
+    /// Exhaustively compress the stream and return the achieved ratio.
+    pub fn base_truth<R: Read>(&self, mut input: R) -> io::Result<f32> {
         let output = WriteCount::default();
         let mut encoder = EncoderBuilder::new().level(1).build(output)?;
         let written = std::io::copy(&mut input, &mut encoder)?;

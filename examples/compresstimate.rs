@@ -25,7 +25,7 @@ fn main() -> std::io::Result<()> {
         std::io::stdout().flush()?;
 
         let start = Instant::now();
-        match estimator.base_truth(&path) {
+        match std::fs::File::open(&path).and_then(|file| estimator.base_truth(file)) {
             Ok(ratio) => {
                 println!("Actual ({:.2?}): {:.2}x", start.elapsed(), ratio);
             }
