@@ -177,9 +177,17 @@ fn amazing_test_suite() {
     assert!(est.compresstimate_file("Cargo.lock").expect("Cargo.lock") < 1.0);
 
     let empty = vec![];
-    assert!(est.compresstimate(std::io::Cursor::new(empty)).expect("empty should work") == 1.0);
+    assert!(
+        est.compresstimate(std::io::Cursor::new(empty))
+            .expect("empty should work")
+            == 1.0
+    );
 
     if std::path::PathBuf::from("/dev/urandom").exists() {
-        assert!(est.compresstimate_file_len("/dev/urandom", 1024 * 1024).expect("/dev/urandom") >= 1.0);
+        assert!(
+            est.compresstimate_file_len("/dev/urandom", 1024 * 1024)
+                .expect("/dev/urandom")
+                >= 1.0
+        );
     }
 }
