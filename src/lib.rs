@@ -29,8 +29,9 @@ impl Write for WriteCount {
     }
 }
 
+/// A statistical confidence level, 80% - 99%
 #[derive(Debug, Clone, Copy)]
-enum Confidence {
+pub enum Confidence {
     C80,
     C85,
     C90,
@@ -50,9 +51,9 @@ impl From<Confidence> for f32 {
     }
 }
 
-fn sample_size(pop: u64, moe: u8, confidence: Confidence) -> f32 {
+fn sample_size(pop: u64, moe: f32, confidence: Confidence) -> f32 {
     let pop = pop as f32;
-    let n_naught = 0.25 * (f32::from(confidence) / (f32::from(moe) / 100.0)).powi(2);
+    let n_naught = 0.25 * (f32::from(confidence) / moe).powi(2);
     ((pop * n_naught) / (n_naught + pop - 1.0)).ceil()
 }
 
@@ -71,19 +72,20 @@ fn sample_size(pop: u64, moe: u8, confidence: Confidence) -> f32 {
 #[derive(Debug, Clone, Copy)]
 pub struct Compresstimator {
     block_size: u64,
-    error_margin: u8,
+    error_margin: f32,
     confidence: Confidence,
 }
 
 const DEFAULT_BLOCK_SIZE: u64 = 4096;
 
 impl Default for Compresstimator {
-    /// Create a `Compresstimator` with a default block size of 4096 bytes
+    /// Create a `Compresstimator` with a default block size of 4096 bytes,
+    /// 10% margin of error, and 95% confidence level.
     fn default() -> Self {
         Self {
             block_size: DEFAULT_BLOCK_SIZE,
-            error_margin: 15,
-            confidence: Confidence::C90,
+            error_margin: 0.1,
+            confidence: Confidence::C95,
         }
     }
 }
@@ -96,11 +98,35 @@ impl Compresstimator {
 
     /// Use a given block size for compresstimation.  This should be some reasonable
     /// multiple of the underlying filesystem block size.
-    pub fn with_block_size(block_size: usize) -> Self {
+    pub fn with_block_size(block_size: u64) -> Self {
         Self {
             block_size: block_size as u64,
             ..Self::default()
         }
+    }
+
+    /// Use a given block size for compresstimation.  This should be some reasonable
+    /// multiple of the underlying filesystem block size.
+    pub fn block_size(&mut self, block_size: u64) -> &Self {
+        self.block_size = block_size;
+        self
+    }
+
+    /// Set the margin of error for the compressibility check.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the error margin is not between 0 and 1.
+    pub fn error_margin(&mut self, margin: f32) -> &Self {
+        assert!(margin > 0.0 && margin < 1.0);
+        self.error_margin = margin;
+        self
+    }
+
+    /// Set the confidence level of the compressibility check.
+    pub fn confidence_level(&mut self, confidence: Confidence) -> &Self {
+        self.confidence = confidence;
+        self
     }
 
     /// Exhaustively compress the stream and return the achieved ratio.
@@ -133,7 +159,7 @@ impl Compresstimator {
         let mut encoder = EncoderBuilder::new().level(1).build(output)?;
 
         let blocks = len / self.block_size;
-        let samples = sample_size(blocks, 15, Confidence::C90) as u64;
+        let samples = sample_size(blocks, self.error_margin, self.confidence) as u64;
         let written;
 
         // If we're going to be randomly sampling a big chunk of the file anyway,
