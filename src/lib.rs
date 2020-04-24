@@ -139,7 +139,7 @@ impl Compresstimator {
         // If we're going to be randomly sampling a big chunk of the file anyway,
         // we might as well read in the lot.
         if samples == 0 || len < samples * self.block_size * 4 {
-            written = std::io::copy(&mut input, &mut encoder)?;
+            written = std::io::copy(&mut input.take(len), &mut encoder)?;
         } else {
             let step = self.block_size * (blocks / samples);
 
